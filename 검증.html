@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검증 — 자바스크립트 구현이 파이썬과 같은가</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="스타일.css">
+<style>
+  .검사 { background: var(--판); border: 1px solid var(--선); border-radius: 12px;
+         padding: 16px; margin-top: 16px; }
+  .검사 h2 { display: flex; align-items: center; gap: 10px; }
+  .판정 { font-size: 0.8rem; padding: 3px 10px; border-radius: 999px; color: #fff;
+          background: var(--흐린글자); }
+  .판정.통과 { background: #1a9c62; }
+  .판정.실패 { background: #c0392b; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--선); }
+  td.수 { font-variant-numeric: tabular-nums; }
+  .틀린것 canvas { width: 56px; height: 56px; image-rendering: pixelated;
+                  background: #000; border-radius: 4px; }
+  .틀린것 { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+  .틀린것 figure { margin: 0; text-align: center; font-size: 0.8rem;
+                  color: var(--흐린글자); }
+</style>
+</head>
+<body>
+
+<header class="학생">
+  <p id="학번이름">학번 2601972 이름 임유주</p>
+</header>
+
+<main>
+  <h1>검증 <span class="꼬리표">웹 버전</span></h1>
+  <p class="설명">
+    <code>desktop_version/검증데이터만들기.py</code> 가 만든 MNIST 시험 이미지 200장을
+    자바스크립트 경로로 통과시켜 파이썬 결과와 대조합니다.
+    <a href="index.html">← 인식기로 돌아가기</a>
+  </p>
+
+  <div class="검사">
+    <h2>검사 1 — 순전파 일치 <span id="판정1" class="판정">확인 중</span></h2>
+    <p class="설명">파이썬이 전처리한 같은 28×28 입력을 <code>모델.js</code> 에 넣어
+      확률 10개를 비교합니다. 기준: 최대 절대차 1e-4 이하.</p>
+    <table><tbody id="결과1"></tbody></table>
+  </div>
+
+  <div class="검사">
+    <h2>검사 2 — 전체 정확도 <span id="판정2" class="판정">확인 중</span></h2>
+    <p class="설명">280×280 그림을 <code>전처리.js</code> → <code>모델.js</code> 로
+      통과시켜 MNIST 정답과 맞춰 봅니다. 기준: 97% 이상.</p>
+    <table><tbody id="결과2"></tbody></table>
+    <div id="틀린것" class="틀린것"></div>
+  </div>
+</main>
+
+<script src="모델.js"></script>
+<script src="전처리.js"></script>
+<script>
+/* 검증 페이지 전용 스크립트. 웹 앱 자체에는 쓰이지 않는다. */
+(function () {
+  const 칸크기 = 전처리.칸크기;
+
+  function base64를float32(문자열) {
+    const 이진 = atob(문자열);
+    const 버퍼 = new ArrayBuffer(이진.length);
+    const 바이트 = new Uint8Array(버퍼);
+    for (let i = 0; i < 이진.length; i++) 바이트[i] = 이진.charCodeAt(i);
+    return new Float32Array(버퍼);
+  }
+
+  function 줄넣기(어디, 이름, 값) {
+    const 줄 = document.createElement("tr");
+    const 머리 = document.createElement("th");
+    머리.textContent = 이름;
+    const 칸 = document.createElement("td");
+    칸.className = "수";
+    칸.textContent = 값;
+    줄.appendChild(머리);
+    줄.appendChild(칸);
+    document.getElementById(어디).appendChild(줄);
+  }
+
+  function 판정하기(어디, 통과) {
+    const 표시 = document.getElementById(어디);
+    표시.textContent = 통과 ? "통과" : "실패";
+    표시.className = "판정 " + (통과 ? "통과" : "실패");
+  }
+
+  function 그림불러오기(주소) {
+    return new Promise(function (풀기, 깨기) {
+      const 그림 = new Image();
+      그림.onload = function () { 풀기(그림); };
+      그림.onerror = function () { 깨기(new Error("그림을 읽지 못했습니다")); };
+      그림.src = 주소;
+    });
+  }
+
+  function 가장큰자리(확률) {
+    let 최고 = 0;
+    for (let i = 1; i < 확률.length; i++) if (확률[i] > 확률[최고]) 최고 = i;
+    return 최고;
+  }
+
+  async function 검사하기() {
+    const 자료 = await fetch("검증데이터.json").then(function (응답) {
+      if (!응답.ok) throw new Error("검증데이터.json 이 없습니다. " +
+        "desktop_version 에서 python3 검증데이터만들기.py 를 먼저 실행하세요.");
+      return 응답.json();
+    });
+    await 모델.불러오기("");
+
+    // 검사 1 — 순전파 일치
+    let 최대오차 = 0;
+    let 예측다름 = 0;
+    자료.항목.forEach(function (항목) {
+      const 확률 = 모델.예측(base64를float32(항목.전처리결과));
+      if (가장큰자리(확률) !== 가장큰자리(항목.확률)) 예측다름++;
+      for (let i = 0; i < 10; i++) {
+        const 차이 = Math.abs(확률[i] - 항목.확률[i]);
+        if (차이 > 최대오차) 최대오차 = 차이;
+      }
+    });
+    줄넣기("결과1", "표본", 자료.항목.length + "장");
+    줄넣기("결과1", "확률 최대 절대차", 최대오차.toExponential(3));
+    줄넣기("결과1", "예측이 다른 장수", 예측다름);
+    판정하기("판정1", 최대오차 <= 1e-4 && 예측다름 === 0);
+
+    // 검사 2 — 전체 정확도 (전처리.js 를 거친다)
+    const 캔버스 = document.createElement("canvas");
+    캔버스.width = 자료.칸크기;
+    캔버스.height = 자료.칸크기;
+    const 그리개 = 캔버스.getContext("2d", { willReadFrequently: true });
+    let 맞은개수 = 0;
+    const 틀린것 = [];
+
+    for (const 항목 of 자료.항목) {
+      const 그림 = await 그림불러오기(항목.그림);
+      그리개.fillStyle = "#000";
+      그리개.fillRect(0, 0, 캔버스.width, 캔버스.height);
+      그리개.drawImage(그림, 0, 0);
+      const 밝기배열 = 전처리.캔버스에서(캔버스);
+      const 뽑은수 = 밝기배열 === null ? -1 : 가장큰자리(모델.예측(밝기배열));
+      if (뽑은수 === 항목.정답) 맞은개수++;
+      else if (틀린것.length < 12) 틀린것.push({ 배열: 밝기배열, 정답: 항목.정답, 예측: 뽑은수 });
+    }
+
+    const 정확도 = 맞은개수 / 자료.항목.length;
+    줄넣기("결과2", "표본", 자료.항목.length + "장");
+    줄넣기("결과2", "맞은 장수", 맞은개수);
+    줄넣기("결과2", "정확도", (정확도 * 100).toFixed(1) + "%");
+    판정하기("판정2", 정확도 >= 0.97);
+
+    const 틀린칸 = document.getElementById("틀린것");
+    틀린것.forEach(function (하나) {
+      const 묶음 = document.createElement("figure");
+      const 캔 = document.createElement("canvas");
+      캔.width = 칸크기;
+      캔.height = 칸크기;
+      전처리.그리기(캔, 하나.배열);
+      const 설명 = document.createElement("figcaption");
+      설명.textContent = "정답 " + 하나.정답 + " / 예측 " + 하나.예측;
+      묶음.appendChild(캔);
+      묶음.appendChild(설명);
+      틀린칸.appendChild(묶음);
+    });
+
+    // 헤드리스 검사에서 읽어 가는 값
+    window.검증결과 = {
+      최대오차: 최대오차, 예측다름: 예측다름,
+      정확도: 정확도, 장수: 자료.항목.length,
+      끝남: true
+    };
+  }
+
+  검사하기().catch(function (오류) {
+    document.querySelector("main").insertAdjacentHTML("beforeend",
+      '<p class="설명" style="color:#c0392b">' + 오류.message + "</p>");
+    window.검증결과 = { 오류: 오류.message, 끝남: true };
+  });
+})();
+</script>
+</body>
+</html>

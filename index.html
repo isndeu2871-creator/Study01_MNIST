@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>손글씨 숫자 인식기 (웹 버전)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="스타일.css">
+</head>
+<body>
+
+<!-- 페이지 화면 맨 위에 학번과 이름이 보여야 한다 -->
+<header class="학생">
+  <p id="학번이름">학번 2601972 이름 임유주</p>
+</header>
+
+<main>
+  <h1>손글씨 숫자 인식기 <span class="꼬리표">웹 버전</span></h1>
+  <p class="설명">
+    데스크톱 버전과 같은 가중치를 쓰고, 외부 라이브러리 없이 순수 자바스크립트로 추론합니다.
+    아래 검은 칸에 마우스나 손가락으로 숫자(0~9) 하나를 크게 써 보세요.
+  </p>
+
+  <section class="판">
+    <div class="칸">
+      <canvas id="그림칸" width="280" height="280" aria-label="숫자를 그리는 칸"></canvas>
+      <div class="단추들">
+        <button id="지우기" type="button">지우기</button>
+        <span id="안내" role="status">모델을 불러오는 중…</span>
+      </div>
+    </div>
+
+    <div class="결과">
+      <strong id="예측">–</strong>
+      <pre id="후보"></pre>
+    </div>
+  </section>
+
+  <section class="딸림">
+    <h2>어떻게 동작하나요</h2>
+    <ol>
+      <li>그린 그림에서 숫자가 있는 영역만 잘라냅니다.</li>
+      <li>비율을 유지하며 긴 변을 20픽셀로 줄입니다.</li>
+      <li>밝기 무게중심을 28×28 칸 가운데로 옮깁니다. MNIST가 이렇게 정리된 자료라서 맞춰 줍니다.</li>
+      <li><code>합성곱2 → 최대풀링2 → 전결합2 → 소프트맥스</code> 순서로 계산합니다.</li>
+    </ol>
+    <p id="모델설명" class="모델설명"></p>
+    <p class="링크"><a href="검증.html">검증 페이지</a> — 파이썬 결과와 대조합니다
+      (<code>검증데이터.json</code>이 있어야 열립니다).</p>
+  </section>
+</main>
+
+<script src="모델.js"></script>
+<script src="전처리.js"></script>
+<script src="그림판.js"></script>
+<script src="앱.js"></script>
+</body>
+</html>

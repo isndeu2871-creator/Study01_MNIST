@@ -1,0 +1,67 @@
+{
+  "arch": "conv8-pool-conv16-pool-fc10",
+  "input": [
+    1,
+    28,
+    28
+  ],
+  "test_accuracy": 99.03,
+  "dtype": "float32",
+  "tensors": [
+    {
+      "name": "conv1.W",
+      "shape": [
+        8,
+        1,
+        5,
+        5
+      ],
+      "offset": 0,
+      "count": 200
+    },
+    {
+      "name": "conv1.b",
+      "shape": [
+        8
+      ],
+      "offset": 800,
+      "count": 8
+    },
+    {
+      "name": "conv2.W",
+      "shape": [
+        16,
+        8,
+        3,
+        3
+      ],
+      "offset": 832,
+      "count": 1152
+    },
+    {
+      "name": "conv2.b",
+      "shape": [
+        16
+      ],
+      "offset": 5440,
+      "count": 16
+    },
+    {
+      "name": "fc.W",
+      "shape": [
+        10,
+        400
+      ],
+      "offset": 5504,
+      "count": 4000
+    },
+    {
+      "name": "fc.b",
+      "shape": [
+        10
+      ],
+      "offset": 21504,
+      "count": 10
+    }
+  ]
+}

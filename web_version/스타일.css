@@ -1,0 +1,112 @@
+:root {
+  --바탕: #f6f7f9;
+  --판: #ffffff;
+  --글자: #1b1d22;
+  --흐린글자: #5d6470;
+  --선: #dfe3e8;
+  --강조: #2f6df6;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--바탕);
+  color: var(--글자);
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+/* 페이지 맨 위 학번·이름 띠 */
+.학생 { background: var(--글자); color: #fff; }
+
+.학생 p {
+  margin: 0 auto;
+  padding: 14px 20px;
+  max-width: 880px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+main { max-width: 880px; margin: 0 auto; padding: 24px 20px 56px; }
+
+h1 { font-size: 1.7rem; margin: 18px 0 8px; }
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+
+.꼬리표 {
+  font-size: 0.8rem;
+  vertical-align: middle;
+  background: var(--강조);
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.설명 { color: var(--흐린글자); margin: 0 0 24px; }
+
+.판 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+
+.칸, .결과, .딸림 {
+  background: var(--판);
+  border: 1px solid var(--선);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.칸 { flex: 0 0 auto; }
+
+#그림칸 {
+  display: block;
+  width: 280px;
+  height: 280px;
+  background: #000;
+  border-radius: 8px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.단추들 { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+
+button {
+  font: inherit;
+  padding: 8px 16px;
+  border: 1px solid var(--선);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+button:hover { border-color: var(--강조); color: var(--강조); }
+
+#안내 { color: var(--흐린글자); font-size: 0.9rem; }
+
+.결과 {
+  flex: 1 1 220px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#예측 { font-size: 5rem; line-height: 1; }
+
+#후보 {
+  margin: 12px 0 0;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--흐린글자);
+  text-align: left;
+}
+
+.딸림 { margin-top: 24px; }
+.딸림 ol { margin: 0; padding-left: 1.3em; color: var(--흐린글자); }
+code { background: #eceff3; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+.모델설명, .링크 { color: var(--흐린글자); font-size: 0.9rem; margin: 12px 0 0; }
+a { color: var(--강조); }
+
+@media (max-width: 640px) {
+  .판 { flex-direction: column; }
+  .결과 { width: 100%; }
+}

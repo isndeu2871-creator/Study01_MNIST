@@ -1,62 +1,70 @@
 # Study01_MNIST
 
-MNIST 손글씨 숫자 인식기 — 브라우저에서 바로 돌아가는 웹 버전입니다.
+손글씨 숫자(0~9) 인식 프로그램. 같은 모델을 데스크톱과 웹 두 가지로 만들었습니다.
 
-배포된 주소: https://isndeu2871-creator.github.io/Study01_MNIST/
+웹 버전 배포 주소: https://isndeu2871-creator.github.io/Study01_MNIST/
 
 ## 구성
 
-| 경로 | 설명 |
-| --- | --- |
-| `index.html` | 페이지 화면. 맨 위에 학번과 이름이 보입니다. |
-| `style.css` | 화면 꾸미기 |
-| `src/model.js` | CNN 추론기 (외부 라이브러리 없음) |
-| `src/preprocess.js` | 그린 그림을 MNIST 모양(28×28)으로 다듬기 |
-| `src/pad.js` | 마우스·손가락으로 그리는 칸 |
-| `src/app.js` | 화면 연결 |
-| `model/weights.bin`, `model/weights.json` | 직접 학습시킨 가중치 |
-| `training/train_cnn.py` | 가중치를 만든 학습 코드 (numpy만 사용) |
-| `training/check_js_matches_numpy.js` | 자바스크립트 추론이 학습 결과와 같은지 확인하는 검사 |
+```
+desktop_version/     PyTorch + Tkinter. 학습도 여기서 한다
+  model.py           합성곱2 + 최대풀링2 + 전결합2 (파라미터 421,642개)
+  preprocess.py      전처리 3단계
+  train.py           학습 → mnist_cnn.pt
+  app.py             손글씨 인식 창
+  가중치내보내기.py      .pt → 웹용 가중치
+  검증데이터만들기.py    웹 검사용 정답 데이터
+  mnist_cnn.pt       학습된 가중치 (받자마자 실행되도록 넣어 둠)
 
-## 배포
+web_version/         외부 라이브러리 없는 순수 자바스크립트
+  index.html 스타일.css 그림판.js 전처리.js 모델.js 앱.js
+  검증.html          파이썬 결과와 대조하는 검사 페이지
+  가중치.bin 가중치정보.json
+```
 
-GitHub Pages는 `gh-pages` 브랜치를 그대로 내보냅니다. 내용을 고치면 `main` 과
-`gh-pages` 양쪽에 올려야 화면에 반영됩니다.
+## 실행
+
+데스크톱 버전 — 반드시 `desktop_version` 안에서 실행합니다.
 
 ```
-git push origin main
-git push origin main:gh-pages
+cd desktop_version
+python3 app.py
 ```
+
+필요한 것: `torch`, `torchvision`, `pillow`, `numpy`, `tkinter`.
+가중치를 다시 만들려면 `python3 train.py` 를 먼저 돌립니다.
+
+웹 버전 — `file://` 로는 열리지 않습니다.
+
+```
+cd web_version
+python3 -m http.server 8000
+```
+
+윈도우에서는 `python3` 대신 `py` 를 씁니다.
 
 ## 모델
 
 ```
-입력 1×28×28
- → 합성곱 8@5×5 → ReLU → 최대풀링 2×2      (8×12×12)
- → 합성곱 16@3×3 → ReLU → 최대풀링 2×2     (16×5×5)
- → 완전연결 400 → 10 → 소프트맥스
+입력 1x28x28
+ → 합성곱1(1→32, 3x3, 패딩 1) → ReLU → 최대풀링 2x2      (32x14x14)
+ → 합성곱2(32→64, 3x3, 패딩 1) → ReLU → 최대풀링 2x2     (64x7x7)
+ → 펼치기(3136) → 전결합1(3136→128) → ReLU → 드롭아웃
+ → 전결합2(128→10) → 소프트맥스
 ```
 
-MNIST 6만 장으로 8에포크 학습했고, 시험자료 1만 장 정확도는 `model/weights.json`의
-`test_accuracy` 값에 적혀 있습니다. 손으로 쓴 글씨에도 잘 맞도록 학습할 때 ±2픽셀
-평행이동을 섞었습니다.
+파라미터 421,642개. 내보낸 가중치 1,686,568바이트.
 
-## 직접 돌려 보기
+## 확인한 것
 
-웹 버전은 그냥 파일을 열면 `fetch`가 막히므로 간단한 서버를 띄웁니다.
+| 항목 | 기준 | 실측 |
+| --- | --- | --- |
+| MNIST 시험자료 정확도 | — | 99.21% |
+| 순전파 일치 (파이썬 ↔ 자바스크립트) | 최대 절대차 1e-4 이하 | 2.42e-7 |
+| 전체 정확도 (전처리 포함, 200장) | 97% 이상 | 98.5% |
 
-```
-python3 -m http.server 8000
-```
-
-그다음 브라우저에서 http://localhost:8000 을 엽니다.
-
-가중치를 다시 만들려면:
-
-```
-pip install numpy
-python3 training/train_cnn.py
-```
+`web_version/검증.html` 에서 직접 돌려 볼 수 있습니다.
+먼저 `desktop_version` 에서 `python3 검증데이터만들기.py` 를 실행하세요.
 
 ## 참고
 

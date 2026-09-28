@@ -18,6 +18,16 @@ MNIST 손글씨 숫자 인식기 — 브라우저에서 바로 돌아가는 웹 
 | `training/train_cnn.py` | 가중치를 만든 학습 코드 (numpy만 사용) |
 | `training/check_js_matches_numpy.js` | 자바스크립트 추론이 학습 결과와 같은지 확인하는 검사 |
 
+## 배포
+
+GitHub Pages는 `gh-pages` 브랜치를 그대로 내보냅니다. 내용을 고치면 `main` 과
+`gh-pages` 양쪽에 올려야 화면에 반영됩니다.
+
+```
+git push origin main
+git push origin main:gh-pages
+```
+
 ## 모델
 
 ```

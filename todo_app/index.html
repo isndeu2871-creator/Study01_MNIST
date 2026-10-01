@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일 관리</title>
+<style>
+  :root {
+    --배경: #f4f5f7;
+    --카드: #ffffff;
+    --글자: #1f2430;
+    --흐린글자: #8a90a0;
+    --선: #e3e5ea;
+    --주색: #3b6cf6;
+    --업무: #3b6cf6;
+    --개인: #e8833a;
+    --공부: #2fa56b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --배경: #14161c;
+      --카드: #1d2029;
+      --글자: #e8eaf0;
+      --흐린글자: #7d8396;
+      --선: #2b2f3b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--배경);
+    color: var(--글자);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+
+  .카드 {
+    background: var(--카드);
+    border: 1px solid var(--선);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .진행률글자 { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+  .진행률막대 { height: 10px; background: var(--선); border-radius: 5px; overflow: hidden; }
+  .진행률막대 > div { height: 100%; width: 0; background: var(--주색); transition: width .25s; }
+
+  .탭줄 { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .탭 {
+    border: 1px solid var(--선);
+    background: var(--카드);
+    color: var(--글자);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .탭[aria-pressed="true"] { background: var(--주색); border-color: var(--주색); color: #fff; }
+
+  form.입력줄 { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type="text"], select {
+    font: inherit;
+    color: var(--글자);
+    background: var(--배경);
+    border: 1px solid var(--선);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  form.입력줄 input[type="text"] { flex: 1 1 200px; min-width: 0; }
+  button {
+    font: inherit;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    background: var(--주색);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.보조 { background: transparent; color: var(--흐린글자); border: 1px solid var(--선); padding: 4px 10px; font-size: 13px; }
+  button.보조:hover { color: var(--글자); }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.항목 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--선);
+  }
+  li.항목:last-child { border-bottom: 0; }
+  li.항목 input[type="checkbox"] { width: 18px; height: 18px; flex: none; }
+  .내용 { flex: 1; min-width: 0; word-break: break-word; cursor: text; }
+  li.완료 .내용 { text-decoration: line-through; color: var(--흐린글자); }
+  .배지 { font-size: 12px; color: #fff; padding: 2px 8px; border-radius: 999px; flex: none; }
+  .배지.업무 { background: var(--업무); }
+  .배지.개인 { background: var(--개인); }
+  .배지.공부 { background: var(--공부); }
+  li.수정중 { flex-wrap: wrap; }
+  li.수정중 input[type="text"] { flex: 1 1 160px; min-width: 0; }
+
+  .빈목록 { text-align: center; color: var(--흐린글자); padding: 24px 0; }
+  .아래줄 { display: flex; justify-content: flex-end; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>할 일 관리</h1>
+
+  <section class="카드" aria-label="진행률">
+    <div class="진행률글자">
+      <span id="진행률글자"></span>
+      <span id="구분진행률글자"></span>
+    </div>
+    <div class="진행률막대" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="진행률막대">
+      <div id="진행률채움"></div>
+    </div>
+  </section>
+
+  <div class="탭줄" id="탭줄"></div>
+
+  <form class="카드 입력줄" id="입력폼">
+    <input type="text" id="새내용" placeholder="할 일을 입력하세요" aria-label="새 할 일" autocomplete="off">
+    <select id="새분류" aria-label="카테고리"></select>
+    <button type="submit">추가</button>
+  </form>
+
+  <section class="카드">
+    <ul id="목록"></ul>
+    <div class="아래줄"><button type="button" class="보조" id="완료삭제">완료 항목 지우기</button></div>
+  </section>
+</main>
+
+<script>
+  const 저장키 = "todos";
+  const 분류들 = ["업무", "개인", "공부"];
+
+  let 할일들 = 불러오기();
+  let 현재탭 = "전체";
+  let 수정중아이디 = null;
+
+  // ---------- 저장 ----------
+  function 불러오기() {
+    try {
+      const 원본 = JSON.parse(localStorage.getItem(저장키));
+      if (!Array.isArray(원본)) return [];
+      return 원본.filter(항목 =>
+        항목 && typeof 항목.id === "string" && typeof 항목.text === "string" &&
+        분류들.includes(항목.category) && typeof 항목.done === "boolean"
+      );
+    } catch (오류) {
+      return [];
+    }
+  }
+
+  function 저장하기() {
+    try {
+      localStorage.setItem(저장키, JSON.stringify(할일들));
+    } catch (오류) {
+      // 저장소를 못 쓰는 환경이면 메모리에서만 동작한다
+    }
+  }
+
+  // ---------- 상태 변경 ----------
+  function 새아이디() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function 추가하기(내용, 분류) {
+    const 정리 = 내용.trim();
+    if (!정리) return;
+    할일들.push({ id: 새아이디(), text: 정리, category: 분류, done: false, createdAt: Date.now() });
+    변경됨();
+  }
+
+  function 수정하기(아이디, 내용, 분류) {
+    const 정리 = 내용.trim();
+    if (!정리) return false;
+    const 항목 = 할일들.find(x => x.id === 아이디);
+    if (!항목) return false;
+    항목.text = 정리;
+    항목.category = 분류;
+    변경됨();
+    return true;
+  }
+
+  function 삭제하기(아이디) {
+    if (!confirm("이 할 일을 삭제할까요?")) return;
+    할일들 = 할일들.filter(x => x.id !== 아이디);
+    변경됨();
+  }
+
+  function 완료바꾸기(아이디) {
+    const 항목 = 할일들.find(x => x.id === 아이디);
+    if (!항목) return;
+    항목.done = !항목.done;
+    변경됨();
+  }
+
+  function 완료지우기() {
+    const 개수 = 할일들.filter(x => x.done).length;
+    if (개수 === 0) return;
+    if (!confirm(`완료한 ${개수}개를 지울까요?`)) return;
+    할일들 = 할일들.filter(x => !x.done);
+    변경됨();
+  }
+
+  function 변경됨() {
+    저장하기();
+    그리기();
+  }
+
+  // ---------- 계산 ----------
+  function 진행률계산(목록) {
+    const 전체 = 목록.length;
+    const 완료 = 목록.filter(x => x.done).length;
+    const 퍼센트 = 전체 === 0 ? 0 : Math.floor(완료 / 전체 * 100 + 0.5);
+    return { 전체, 완료, 퍼센트 };
+  }
+
+  // ---------- 그리기 ----------
+  function 만들기(태그, 속성 = {}, 글자 = "") {
+    const 요소 = document.createElement(태그);
+    for (const [키, 값] of Object.entries(속성)) {
+      if (키 === "class") 요소.className = 값;
+      else 요소.setAttribute(키, 값);
+    }
+    if (글자) 요소.textContent = 글자;
+    return 요소;
+  }
+
+  function 분류선택칸만들기(선택값) {
+    const 칸 = 만들기("select", { "aria-label": "카테고리" });
+    for (const 분류 of 분류들) {
+      const 옵션 = 만들기("option", { value: 분류 }, 분류);
+      if (분류 === 선택값) 옵션.selected = true;
+      칸.appendChild(옵션);
+    }
+    return 칸;
+  }
+
+  function 그리기() {
+    // 진행률
+    const 전체값 = 진행률계산(할일들);
+    document.getElementById("진행률글자").textContent =
+      `완료 ${전체값.완료} / 전체 ${전체값.전체} (${전체값.퍼센트}%)`;
+    document.getElementById("진행률채움").style.width = 전체값.퍼센트 + "%";
+    document.getElementById("진행률막대").setAttribute("aria-valuenow", 전체값.퍼센트);
+
+    const 보이는목록 = 현재탭 === "전체" ? 할일들 : 할일들.filter(x => x.category === 현재탭);
+    const 탭값 = 진행률계산(보이는목록);
+    document.getElementById("구분진행률글자").textContent =
+      현재탭 === "전체" ? "" : `${현재탭} ${탭값.완료}/${탭값.전체} (${탭값.퍼센트}%)`;
+
+    // 탭
+    const 탭줄 = document.getElementById("탭줄");
+    탭줄.replaceChildren();
+    for (const 이름 of ["전체", ...분류들]) {
+      const 탭 = 만들기("button", { type: "button", class: "탭", "aria-pressed": String(이름 === 현재탭) }, 이름);
+      탭.addEventListener("click", () => { 현재탭 = 이름; 수정중아이디 = null; 그리기(); });
+      탭줄.appendChild(탭);
+    }
+
+    // 목록
+    const 목록 = document.getElementById("목록");
+    목록.replaceChildren();
+    if (보이는목록.length === 0) {
+      목록.appendChild(만들기("li", { class: "빈목록" }, "할 일이 없습니다"));
+      return;
+    }
+    for (const 항목 of 보이는목록) {
+      목록.appendChild(항목.id === 수정중아이디 ? 수정줄만들기(항목) : 보기줄만들기(항목));
+    }
+  }
+
+  function 보기줄만들기(항목) {
+    const 줄 = 만들기("li", { class: "항목" + (항목.done ? " 완료" : "") });
+
+    const 체크 = 만들기("input", { type: "checkbox", "aria-label": "완료 표시" });
+    체크.checked = 항목.done;
+    체크.addEventListener("change", () => 완료바꾸기(항목.id));
+
+    const 내용 = 만들기("span", { class: "내용" }, 항목.text);
+    내용.addEventListener("dblclick", () => 수정시작(항목.id));
+
+    const 배지 = 만들기("span", { class: "배지 " + 항목.category }, 항목.category);
+    const 수정 = 만들기("button", { type: "button", class: "보조" }, "수정");
+    수정.addEventListener("click", () => 수정시작(항목.id));
+    const 삭제 = 만들기("button", { type: "button", class: "보조" }, "삭제");
+    삭제.addEventListener("click", () => 삭제하기(항목.id));
+
+    줄.append(체크, 내용, 배지, 수정, 삭제);
+    return 줄;
+  }
+
+  function 수정줄만들기(항목) {
+    const 줄 = 만들기("li", { class: "항목 수정중" });
+    const 입력 = 만들기("input", { type: "text", "aria-label": "할 일 수정", autocomplete: "off" });
+    입력.value = 항목.text;
+    const 분류칸 = 분류선택칸만들기(항목.category);
+
+    const 저장 = () => {
+      if (수정하기(항목.id, 입력.value, 분류칸.value)) 수정중아이디 = null;
+      그리기();
+    };
+    const 취소 = () => { 수정중아이디 = null; 그리기(); };
+
+    입력.addEventListener("keydown", (이벤트) => {
+      if (이벤트.key === "Enter") { 이벤트.preventDefault(); 저장(); }
+      else if (이벤트.key === "Escape") 취소();
+    });
+
+    const 저장버튼 = 만들기("button", { type: "button" }, "저장");
+    저장버튼.addEventListener("click", 저장);
+    const 취소버튼 = 만들기("button", { type: "button", class: "보조" }, "취소");
+    취소버튼.addEventListener("click", 취소);
+
+    줄.append(입력, 분류칸, 저장버튼, 취소버튼);
+    queueMicrotask(() => 입력.focus());
+    return 줄;
+  }
+
+  function 수정시작(아이디) {
+    수정중아이디 = 아이디;
+    그리기();
+  }
+
+  // ---------- 시작 ----------
+  const 새분류칸 = document.getElementById("새분류");
+  for (const 분류 of 분류들) 새분류칸.appendChild(만들기("option", { value: 분류 }, 분류));
+
+  document.getElementById("입력폼").addEventListener("submit", (이벤트) => {
+    이벤트.preventDefault();
+    const 입력 = document.getElementById("새내용");
+    추가하기(입력.value, 새분류칸.value);
+    입력.value = "";
+    입력.focus();
+  });
+  document.getElementById("완료삭제").addEventListener("click", 완료지우기);
+
+  그리기();
+</script>
+</body>
+</html>
